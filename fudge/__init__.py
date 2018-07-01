@@ -258,34 +258,51 @@ class EqualsAssertionError(AssertionError):
     def __unicode__(self):
         return self._serialize()
 
+    class KeyNotFound():
+        def __repr__(self):
+            return '[Key not found]'
+
     def _serialize(self):
         import difflib
+        key_not_found = EqualsAssertionError.KeyNotFound()
 
         def f(items, e, a, indent=0, key=None):
-            def user_matcher(e, a):
-                result = list(difflib.Differ().compare(e, a))
-
-                for i in result:
-                    i = i.replace('\n', '')
-                    yield return_value(i, key=key, prefix='!')
-
             def return_value(s, key=None, prefix=None):
+                if s == "arg.any()":
+                    pass
+
                 if key:
                     s = '%s: %s' % (key, s)
 
                 prefix = prefix or ' '
                 return prefix + ' ' * (indent * 2) + s
 
+            def quotes_if_needed(v):
+                if isinstance(v, six.string_types):
+                    return '"%s"' % v
+
+                return v
+
+            def user_matcher(e, a):
+                if isinstance(e, six.string_types) and isinstance(a, six.string_types):
+                    result = list(difflib.Differ().compare([quotes_if_needed(e)], [quotes_if_needed(a)]))
+
+                    for i in result:
+                        i = i.replace('\n', '')
+                        yield return_value(i, key=key, prefix='!')
+                else:
+                    yield return_value('%s :<> %s' % (str(e), str(a)), key=key, prefix='!')
+
             if isinstance(a, dict):
                 if not isinstance(e, dict):
                     if a == e:
-                        items.append(return_value(str(e)))
+                        items.append(return_value('%s :== %s' % (e, str(a)), key=key))
                     else:
                         items.append(return_value('%s :<> %s' % (str(e), str(a)), key=key, prefix='!'))
                 else:
                     items.append(return_value('{', key=key))
-                    for key in a.keys():
-                        f(items, e.get(key), a[key], indent+1, key)
+                    for key in sorted(set(a.keys() + e.keys())):
+                        f(items, e.get(key, key_not_found), a.get(key, key_not_found), indent+1, key)
 
                     items.append(return_value('}'))
 
@@ -300,23 +317,11 @@ class EqualsAssertionError(AssertionError):
 
                 return
 
-            def qoute_if_needed(v):
-                if isinstance(v, six.string_types):
-                    return '"%s"' % v
-
-                return v
-
             if a == e:
-                e = qoute_if_needed(e)
-                a = qoute_if_needed(a)
+                e = quotes_if_needed(e)
+                a = quotes_if_needed(a)
                 items.append(return_value('%s :== %s' % (e, str(a)), key=key))
                 return
-
-            if not isinstance(e, (list, tuple)):
-                e = [e]
-
-            if not isinstance(a, (list, tuple)):
-                a = [a]
 
             for s in user_matcher(e, a):
                 items.append(s)
@@ -324,7 +329,7 @@ class EqualsAssertionError(AssertionError):
         results = []
         f(results, self.expected, self.actual)
 
-        return '\n'.join(results)
+        return self.msg + '\n'.join(results)
 
     @classmethod
     def deserialize_error(cls, serialized_message):
@@ -413,15 +418,13 @@ class Call(object):
                 self.expected_kwargs = {} # empty **kw
             if self.expected_kwargs != kwargs:
                 msg = "%s was called unexpectedly with args %s" % (self, self._repr_call(args, kwargs, shorten_long_vals=False))
-                error = EqualsAssertionError(self.expected_kwargs, kwargs, msg)
-                raise error
+                raise EqualsAssertionError(self.expected_kwargs, kwargs, msg)
 
             if self.expected_args is None:
                 self.expected_args = tuple([])  # empty *args
             if self.expected_args != args:
                 msg = "%s was called unexpectedly with args %s" % (self, self._repr_call(args, kwargs, shorten_long_vals=False))
-                error = EqualsAssertionError(self.expected_args, args, msg)
-                raise error
+                raise EqualsAssertionError(self.expected_args, args, msg)
 
         # now check for matching keyword args.
         # i.e. keyword args that are only checked if the call provided them
