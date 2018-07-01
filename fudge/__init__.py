@@ -4,6 +4,9 @@
 See :ref:`using-fudge` for common scenarios.
 
 """
+import itertools
+
+import six
 
 __version__ = '1.1.1'
 import os
@@ -14,6 +17,7 @@ import warnings
 from fudge.exc import FakeDeclarationError
 from fudge.patcher import *
 from fudge.util import wraps, fmt_val, fmt_dict_vals
+import pprint
 
 __all__ = ['Fake', 'patch', 'test', 'clear_calls', 'verify',
            'clear_expectations']
@@ -211,6 +215,128 @@ def test(method):
     return clear_and_verify
 test.__test__ = False # Nose: do not collect
 
+
+if sys.version_info < (3, ):
+    # Python 2
+    text_type = unicode  # flake8: noqa
+else:
+    # Python 3
+    text_type = str
+
+
+_PY2K = sys.version_info < (3,)
+_PRIMITIVES = [int, str, bool]
+if _PY2K:
+    # Not available in py3
+    # noinspection PyUnresolvedReferences
+    _PRIMITIVES.append(unicode)  # noqa
+    # Not available in py3
+    # noinspection PyUnresolvedReferences
+    _STR_F = unicode  # noqa
+else:
+    _STR_F = str
+
+
+def _format_and_convert(val):
+    # No need to pretty-print primitives
+    return val if any(x for x in _PRIMITIVES if isinstance(val, x)) else pprint.pformat(val)
+
+
+class EqualsAssertionError(AssertionError):
+    MESSAGE_SEP = "\n"
+    NOT_EQ_SEP = " != "
+
+    def __init__(self, expected, actual, msg=None):
+        super(AssertionError, self).__init__()
+        self.expected = expected
+        self.actual = actual
+        self.msg = text_type(msg)
+
+    def __str__(self):
+        return self._serialize()
+
+    def __unicode__(self):
+        return self._serialize()
+
+    def _serialize(self):
+        import difflib
+
+        def f(items, e, a, indent=0, key=None):
+            def user_matcher(e, a):
+                result = list(difflib.Differ().compare(e, a))
+
+                for i in result:
+                    i = i.replace('\n', '')
+                    yield return_value(i, key=key, prefix='!')
+
+            def return_value(s, key=None, prefix=None):
+                if key:
+                    s = '%s: %s' % (key, s)
+
+                prefix = prefix or ' '
+                return prefix + ' ' * (indent * 2) + s
+
+            if isinstance(a, dict):
+                if not isinstance(e, dict):
+                    if a == e:
+                        items.append(return_value(str(e)))
+                    else:
+                        items.append(return_value('%s :<> %s' % (str(e), str(a)), key=key, prefix='!'))
+                else:
+                    items.append(return_value('{', key=key))
+                    for key in a.keys():
+                        f(items, e.get(key), a[key], indent+1, key)
+
+                    items.append(return_value('}'))
+
+                return
+
+            if isinstance(a, (list, tuple)):
+                items.append(return_value('['))
+                for val1, val2 in itertools.izip_longest(e, a):
+                    f(items, val1, val2, indent+1)
+
+                items.append(return_value(']'))
+
+                return
+
+            def qoute_if_needed(v):
+                if isinstance(v, six.string_types):
+                    return '"%s"' % v
+
+                return v
+
+            if a == e:
+                e = qoute_if_needed(e)
+                a = qoute_if_needed(a)
+                items.append(return_value('%s :== %s' % (e, str(a)), key=key))
+                return
+
+            if not isinstance(e, (list, tuple)):
+                e = [e]
+
+            if not isinstance(a, (list, tuple)):
+                a = [a]
+
+            for s in user_matcher(e, a):
+                items.append(s)
+
+        results = []
+        f(results, self.expected, self.actual)
+
+        return '\n'.join(results)
+
+    @classmethod
+    def deserialize_error(cls, serialized_message):
+        message, diff = serialized_message.split(cls.MESSAGE_SEP)
+        exp, act = diff.split(cls.NOT_EQ_SEP)
+        return EqualsAssertionError(exp, act, message, preformated=True)
+
+
+def deserialize_error(serialized_message):
+    return EqualsAssertionError.deserialize_error(serialized_message)
+
+
 class Call(object):
     """A call that can be made on a Fake object.
 
@@ -286,20 +412,16 @@ class Call(object):
             if self.expected_kwargs is None:
                 self.expected_kwargs = {} # empty **kw
             if self.expected_kwargs != kwargs:
-                raise AssertionError(
-                    "%s was called unexpectedly with args %s" % (
-                            self,
-                            self._repr_call(args, kwargs,
-                                            shorten_long_vals=False)))
+                msg = "%s was called unexpectedly with args %s" % (self, self._repr_call(args, kwargs, shorten_long_vals=False))
+                error = EqualsAssertionError(self.expected_kwargs, kwargs, msg)
+                raise error
 
             if self.expected_args is None:
-                self.expected_args = tuple([]) # empty *args
+                self.expected_args = tuple([])  # empty *args
             if self.expected_args != args:
-                raise AssertionError(
-                    "%s was called unexpectedly with args %s" % (
-                            self,
-                            self._repr_call(args, kwargs,
-                                            shorten_long_vals=False)))
+                msg = "%s was called unexpectedly with args %s" % (self, self._repr_call(args, kwargs, shorten_long_vals=False))
+                error = EqualsAssertionError(self.expected_args, args, msg)
+                raise error
 
         # now check for matching keyword args.
         # i.e. keyword args that are only checked if the call provided them
