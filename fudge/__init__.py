@@ -20,7 +20,8 @@ from fudge.util import wraps, fmt_val, fmt_dict_vals
 import pprint
 
 __all__ = ['Fake', 'patch', 'test', 'clear_calls', 'verify',
-           'clear_expectations']
+           'clear_expectations', 'EqualsAssertionError']
+
 
 class Registry(object):
     """An internal, thread-safe registry of expected calls.
