@@ -292,7 +292,7 @@ class EqualsAssertionError(AssertionError):
                         i = i.replace('\n', '')
                         yield return_value(i, key=key, prefix='!')
                 else:
-                    yield return_value('%s :<> %s' % (str(e), str(a)), key=key, prefix='!')
+                    yield return_value('%s :<> %s' % (str(quotes_if_needed(e)), str(quotes_if_needed(a))), key=key, prefix='!')
 
             if isinstance(a, dict):
                 if not isinstance(e, dict):
@@ -311,7 +311,7 @@ class EqualsAssertionError(AssertionError):
 
             if isinstance(a, (list, tuple)):
                 items.append(return_value('['))
-                for val1, val2 in itertools.izip_longest(e, a):
+                for val1, val2 in itertools.izip_longest(e or (), a or ()):
                     f(items, val1, val2, indent+1)
 
                 items.append(return_value(']'))
