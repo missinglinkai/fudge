@@ -309,7 +309,7 @@ class EqualsAssertionError(AssertionError):
 
                 return
 
-            if isinstance(a, (list, tuple)):
+            if isinstance(a, (list, tuple)) and isinstance(e, (list, tuple)):
                 items.append(return_value('['))
                 for val1, val2 in itertools.izip_longest(e or (), a or ()):
                     f(items, val1, val2, indent+1)
