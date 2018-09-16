@@ -12,7 +12,7 @@ __version__ = '1.1.1'
 import os
 import re
 import sys
-import _thread
+import thread
 import warnings
 from fudge.exc import FakeDeclarationError
 from fudge.patcher import *
@@ -72,12 +72,12 @@ class Registry(object):
             this_call_order.add_expected_call(expected_call)
 
     def get_expected_calls(self):
-        self.expected_calls.setdefault(_thread.get_ident(), [])
-        return self.expected_calls[_thread.get_ident()]
+        self.expected_calls.setdefault(thread.get_ident(), [])
+        return self.expected_calls[thread.get_ident()]
 
     def get_expected_call_order(self):
-        self.expected_call_order.setdefault(_thread.get_ident(), {})
-        return self.expected_call_order[_thread.get_ident()]
+        self.expected_call_order.setdefault(thread.get_ident(), {})
+        return self.expected_call_order[thread.get_ident()]
 
     def remember_expected_call_order(self, expected_call_order):
         ordered_fakes = self.get_expected_call_order()
