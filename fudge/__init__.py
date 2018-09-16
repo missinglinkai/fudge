@@ -12,7 +12,7 @@ __version__ = '1.1.1'
 import os
 import re
 import sys
-import thread
+import _thread
 import warnings
 from fudge.exc import FakeDeclarationError
 from fudge.patcher import *
@@ -54,7 +54,7 @@ class Registry(object):
         self.clear_actual_calls()
         for stack in self.call_stacks:
             stack.reset()
-        for fake, call_order in self.get_expected_call_order().items():
+        for fake, call_order in list(self.get_expected_call_order().items()):
             call_order.reset_calls()
 
     def clear_expectations(self):
@@ -72,12 +72,12 @@ class Registry(object):
             this_call_order.add_expected_call(expected_call)
 
     def get_expected_calls(self):
-        self.expected_calls.setdefault(thread.get_ident(), [])
-        return self.expected_calls[thread.get_ident()]
+        self.expected_calls.setdefault(_thread.get_ident(), [])
+        return self.expected_calls[_thread.get_ident()]
 
     def get_expected_call_order(self):
-        self.expected_call_order.setdefault(thread.get_ident(), {})
-        return self.expected_call_order[thread.get_ident()]
+        self.expected_call_order.setdefault(_thread.get_ident(), {})
+        return self.expected_call_order[_thread.get_ident()]
 
     def remember_expected_call_order(self, expected_call_order):
         ordered_fakes = self.get_expected_call_order()
@@ -99,7 +99,7 @@ class Registry(object):
             for exp in self.get_expected_calls():
                 exp.assert_called()
                 exp.assert_times_called()
-            for fake, call_order in self.get_expected_call_order().items():
+            for fake, call_order in list(self.get_expected_call_order().items()):
                 call_order.assert_order_met(finalize=True)
         finally:
             self.clear_calls()
@@ -219,7 +219,7 @@ test.__test__ = False # Nose: do not collect
 
 if sys.version_info < (3, ):
     # Python 2
-    text_type = unicode  # flake8: noqa
+    text_type = str  # flake8: noqa
 else:
     # Python 3
     text_type = str
@@ -230,10 +230,10 @@ _PRIMITIVES = [int, str, bool]
 if _PY2K:
     # Not available in py3
     # noinspection PyUnresolvedReferences
-    _PRIMITIVES.append(unicode)  # noqa
+    _PRIMITIVES.append(str)  # noqa
     # Not available in py3
     # noinspection PyUnresolvedReferences
-    _STR_F = unicode  # noqa
+    _STR_F = str  # noqa
 else:
     _STR_F = str
 
@@ -268,15 +268,14 @@ class EqualsAssertionError(AssertionError):
         key_not_found = EqualsAssertionError.KeyNotFound()
 
         def f(items, e, a, indent=0, key=None):
-            def return_value(s, key=None, prefix=None):
+            def return_value(s, current_key=None, prefix=None):
                 if s == "arg.any()":
                     pass
 
-                if key:
-                    s = '%s: %s' % (key, s)
+                current_msg = '%s: %s' % (current_key, s) if current_key else s
 
                 prefix = prefix or ' '
-                return prefix + ' ' * (indent * 2) + s
+                return prefix + ' ' * (indent * 2) + current_msg
 
             def quotes_if_needed(v):
                 if isinstance(v, six.string_types):
@@ -284,34 +283,39 @@ class EqualsAssertionError(AssertionError):
 
                 return v
 
-            def user_matcher(e, a):
+            def user_not_matcher(e, a):
                 if isinstance(e, six.string_types) and isinstance(a, six.string_types):
                     result = list(difflib.Differ().compare([quotes_if_needed(e)], [quotes_if_needed(a)]))
 
                     for i in result:
                         i = i.replace('\n', '')
-                        yield return_value(i, key=key, prefix='!')
+                        yield return_value(i, current_key=key, prefix='!')
+                elif str(e) == str(a):
+                    if type(e) == type(a):
+                        yield return_value('%s (%s) :<> %s (%s)' % (str(e), e.__repr__(), str(a), a.__repr__()), current_key=key, prefix='!')
+                    else:
+                        yield return_value('%s (%s) :<> %s (%s)' % (str(e), type(e), str(a), type(a)), current_key=key, prefix='!')
                 else:
-                    yield return_value('%s :<> %s' % (str(quotes_if_needed(e)), str(quotes_if_needed(a))), key=key, prefix='!')
+                    yield return_value('%s :<> %s' % (str(e), str(a)), current_key=key, prefix='!')
 
             if isinstance(a, dict):
                 if not isinstance(e, dict):
                     if a == e:
-                        items.append(return_value('%s :== %s' % (e, str(a)), key=key))
+                        items.append(return_value('%s :== %s' % (e, str(a)), current_key=key))
                     else:
-                        items.append(return_value('%s :<> %s' % (str(e), str(a)), key=key, prefix='!'))
+                        items.append(return_value('%s :<> %s' % (str(e), str(a)), current_key=key, prefix='!'))
                 else:
-                    items.append(return_value('{', key=key))
-                    for key in sorted(set(a.keys() + e.keys())):
+                    items.append(return_value('{', current_key=key))
+                    for key in sorted(set(list(a.keys()) + list(e.keys()))):
                         f(items, e.get(key, key_not_found), a.get(key, key_not_found), indent+1, key)
 
                     items.append(return_value('}'))
 
                 return
 
-            if isinstance(a, (list, tuple)) and isinstance(e, (list, tuple)):
+            if isinstance(a, (list, tuple)):
                 items.append(return_value('['))
-                for val1, val2 in itertools.izip_longest(e or (), a or ()):
+                for val1, val2 in itertools.zip_longest(e, a):
                     f(items, val1, val2, indent+1)
 
                 items.append(return_value(']'))
@@ -321,16 +325,16 @@ class EqualsAssertionError(AssertionError):
             if a == e:
                 e = quotes_if_needed(e)
                 a = quotes_if_needed(a)
-                items.append(return_value('%s :== %s' % (e, str(a)), key=key))
+                items.append(return_value('%s :== %s' % (e, str(a)), current_key=key))
                 return
 
-            for s in user_matcher(e, a):
+            for s in user_not_matcher(e, a):
                 items.append(s)
 
         results = []
         f(results, self.expected, self.actual)
 
-        return self.msg + '\n' + '\n'.join(results)
+        return self.msg + '\n'.join(results)
 
     @classmethod
     def deserialize_error(cls, serialized_message):
@@ -431,7 +435,7 @@ class Call(object):
         # i.e. keyword args that are only checked if the call provided them
         if self.expected_matching_kwargs:
             for expected_arg, expected_value in \
-                                self.expected_matching_kwargs.items():
+                                list(self.expected_matching_kwargs.items()):
                 if expected_arg in kwargs:
                     if expected_value != kwargs[expected_arg]:
                         raise AssertionError(
@@ -466,13 +470,13 @@ class Call(object):
 
             if self.expected_kwarg_count is None:
                 self.expected_kwarg_count = 0
-            if len(kwargs.keys()) != self.expected_kwarg_count:
+            if len(list(kwargs.keys())) != self.expected_kwarg_count:
                 raise AssertionError(
                     "%s was called with %s keyword arg(s) but expected %s" % (
-                        self, len(kwargs.keys()), self.expected_kwarg_count))
+                        self, len(list(kwargs.keys())), self.expected_kwarg_count))
 
         if self.unexpected_kwargs:
-            for un_key, un_val in self.unexpected_kwargs.items():
+            for un_key, un_val in list(self.unexpected_kwargs.items()):
                 if un_key in kwargs and kwargs[un_key] == un_val:
                     raise AssertionError(
                         "%s was called unexpectedly with kwarg %s=%s" %
@@ -1513,3 +1517,4 @@ class Fake(object):
         exp = self._get_current_call()
         exp.expected_kwarg_count = count
         return self
+
