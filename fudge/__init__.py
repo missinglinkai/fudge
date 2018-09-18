@@ -12,7 +12,7 @@ __version__ = '1.1.1'
 import os
 import re
 import sys
-import thread
+from six.moves import _thread as thread
 import warnings
 from fudge.exc import FakeDeclarationError
 from fudge.patcher import *
