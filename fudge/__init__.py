@@ -4,8 +4,6 @@
 See :ref:`using-fudge` for common scenarios.
 
 """
-import itertools
-
 import six
 
 __version__ = '1.1.1'
@@ -315,8 +313,8 @@ class EqualsAssertionError(AssertionError):
 
             if isinstance(a, (list, tuple)):
                 items.append(return_value('['))
-                for val1, val2 in itertools.zip_longest(e, a):
-                    f(items, val1, val2, indent+1)
+                for val1, val2 in six.moves.zip_longest(e or (), a or ()):
+                    f(items, val1, val2, indent + 1)
 
                 items.append(return_value(']'))
 
