@@ -20,6 +20,7 @@ should end with the suffix ".jpg"
     >>> fudge.clear_expectations()
 
 """
+import math
 import warnings
 
 from fudge.util import fmt_val, fmt_dict_vals
@@ -434,6 +435,22 @@ class ValueInspector(object):
         """
         return self._make_value_test(Startswith, part)
 
+    def is_nan(self):
+        """Ensure that a value is NaN.
+
+        This is useful for when values with dynamic parts that are hard to replicate.
+
+        .. doctest::
+
+            >>> import fudge
+            >>> from fudge.inspector import arg
+            >>> matrix = fudge.Fake("matrix").expects("init").with_args(arg.is_nan())
+            >>> matrix.init(float('NaN'))
+            >>> fudge.verify()
+
+        """
+        return self._make_value_test(IsNaN)
+
 class NotValueInspector(ValueInspector):
     """Inherits all the argument methods from ValueInspector, but inverts them
     to expect the opposite. See the ValueInspector method docstrings for
@@ -505,7 +522,7 @@ class Stringlike(ValueTest):
         return self._make_argspec(fmt_val(self.part))
 
     def stringlike(self, value):
-        if isinstance(value, (str, unicode)):
+        if isinstance(value, str):
             return value
         else:
             return str(value)
@@ -513,6 +530,15 @@ class Stringlike(ValueTest):
     def __eq__(self, other):
         check_stringlike = getattr(self.stringlike(other), self.arg_method)
         return check_stringlike(self.part)
+
+class IsNaN(ValueTest):
+    arg_method = "is_nan"
+
+    def __eq__(self, other):
+        return math.isnan(other)
+
+    def _repr_argspec(self):
+        return self._make_argspec("")
 
 class Startswith(Stringlike):
     arg_method = "startswith"
@@ -530,7 +556,7 @@ class HasAttr(ValueTest):
         return self._make_argspec(", ".join(sorted(fmt_dict_vals(self.attributes))))
 
     def __eq__(self, other):
-        for name, value in self.attributes.items():
+        for name, value in list(self.attributes.items()):
             if not hasattr(other, name):
                 return False
             if getattr(other, name) != value:
@@ -599,3 +625,4 @@ class NotValue(ValueTest):
 
     def _repr_argspec(self):
         return "arg_not(%s)" % self.item
+
