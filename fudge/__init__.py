@@ -332,7 +332,7 @@ class EqualsAssertionError(AssertionError):
         results = []
         f(results, self.expected, self.actual)
 
-        return self.msg + '\n'.join(results)
+        return self.msg + '\n' + '\n'.join(results)
 
     @classmethod
     def deserialize_error(cls, serialized_message):
@@ -1515,4 +1515,3 @@ class Fake(object):
         exp = self._get_current_call()
         exp.expected_kwarg_count = count
         return self
-
