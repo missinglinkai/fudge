@@ -312,7 +312,7 @@ class EqualsAssertionError(AssertionError):
                 return
 
             if isinstance(a, (list, tuple)) and isinstance(e, (list, tuple)):
-                items.append(return_value('['))
+                items.append(return_value('[', current_key=key))
                 for val1, val2 in six.moves.zip_longest(e or (), a or ()):
                     f(items, val1, val2, indent + 1)
 
@@ -332,7 +332,7 @@ class EqualsAssertionError(AssertionError):
         results = []
         f(results, self.expected, self.actual)
 
-        return self.msg + '\n' + '\n'.join(results)
+        return self.msg + '\n'.join(results)
 
     @classmethod
     def deserialize_error(cls, serialized_message):
@@ -1515,3 +1515,5 @@ class Fake(object):
         exp = self._get_current_call()
         exp.expected_kwarg_count = count
         return self
+
+
