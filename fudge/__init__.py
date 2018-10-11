@@ -741,9 +741,10 @@ class Fake(object):
 
     def __init__(self, name=None, allows_any_call=False,
                  callable=False, expect_call=False):
-        self._declared_calls = {}
         self._attributes = {}
         self._properties = {}
+        self._declared_calls = {}
+
         self._name = (name or self._guess_name())
         self._last_declared_call_name = None
         self._is_a_stub = False
@@ -828,7 +829,7 @@ class Fake(object):
                 "%s.is_callable() ?)" % (self, self.__class__.__name__))
 
     def __setattr__(self, name, val):
-        if hasattr(self, '_attributes') and name in self._attributes:
+        if name != '_attributes' and name in self._attributes:
             self._attributes[name] = val
         else:
             object.__setattr__(self, name, val)
