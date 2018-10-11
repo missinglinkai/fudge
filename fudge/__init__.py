@@ -741,9 +741,9 @@ class Fake(object):
 
     def __init__(self, name=None, allows_any_call=False,
                  callable=False, expect_call=False):
+        self._declared_calls = {}
         self._attributes = {}
         self._properties = {}
-        self._declared_calls = {}
         self._name = (name or self._guess_name())
         self._last_declared_call_name = None
         self._is_a_stub = False
@@ -766,17 +766,23 @@ class Fake(object):
 
         """
         # this getter circumvents infinite loops:
-        def g(n):
-            return object.__getattribute__(self, n)
+        def g(n, default_value=None):
+            try:
+                return object.__getattribute__(self, n)
+            except AttributeError:
+                if default_value is None:
+                    raise
 
-        if name in g('_declared_calls'):
+                return default_value
+
+        if name in g('_declared_calls', {}):
             # if it's a call that has been declared
             # as that of the real object then hand it over:
-            return g('_declared_calls')[name]
-        elif name in g('_attributes'):
+            return g('_declared_calls', {})[name]
+        elif name in g('_attributes', {}):
             # return attribute declared on real object
-            return g('_attributes')[name]
-        elif name in g('_properties'):
+            return g('_attributes', {})[name]
+        elif name in g('_properties', {}):
             # execute function and return result
             return g('_properties')[name]()
         else:
@@ -789,7 +795,7 @@ class Fake(object):
             else:
                 return self_call
 
-            if g('_is_a_stub'):
+            if g('_is_a_stub', False):
                 # Lazily create a attribute (which might later get called):
                 stub = Fake(name=self._endpoint_name(name)).is_a_stub()
                 self.has_attr(**{name: stub})
