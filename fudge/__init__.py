@@ -311,7 +311,7 @@ class EqualsAssertionError(AssertionError):
 
                 return
 
-            if isinstance(a, (list, tuple)) and isinstance(e, (list, tuple)):
+            if isinstance(a, (list, tuple)) and isinstance(e, (list, tuple), fillvalue=key_not_found):
                 items.append(return_value('[', current_key=key))
                 for val1, val2 in six.moves.zip_longest(e or (), a or ()):
                     f(items, val1, val2, indent + 1)
