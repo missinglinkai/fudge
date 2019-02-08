@@ -279,7 +279,7 @@ class EqualsAssertionError(AssertionError):
                 if isinstance(v, six.string_types):
                     return '"%s"' % v
 
-                return v
+                return str(v)
 
             def user_not_matcher(e, a):
                 if isinstance(e, six.string_types) and isinstance(a, six.string_types):
@@ -290,11 +290,11 @@ class EqualsAssertionError(AssertionError):
                         yield return_value(i, current_key=key, prefix='!')
                 elif str(e) == str(a):
                     if type(e) == type(a):
-                        yield return_value('%s (%s) :<> %s (%s)' % (str(e), e.__repr__(), str(a), a.__repr__()), current_key=key, prefix='!')
+                        yield return_value('%s (%s) :<> %s (%s)' % (quotes_if_needed(e), e.__repr__(), quotes_if_needed(a), a.__repr__()), current_key=key, prefix='!')
                     else:
-                        yield return_value('%s (%s) :<> %s (%s)' % (str(e), type(e), str(a), type(a)), current_key=key, prefix='!')
+                        yield return_value('%s (%s) :<> %s (%s)' % (quotes_if_needed(e), type(e), quotes_if_needed(a), type(a)), current_key=key, prefix='!')
                 else:
-                    yield return_value('%s :<> %s' % (str(e), str(a)), current_key=key, prefix='!')
+                    yield return_value('%s :<> %s' % (quotes_if_needed(e), quotes_if_needed(a)), current_key=key, prefix='!')
 
             if isinstance(a, dict):
                 if not isinstance(e, dict):
@@ -320,7 +320,7 @@ class EqualsAssertionError(AssertionError):
 
                 return
 
-            if a == e:
+            if e == a:
                 e = quotes_if_needed(e)
                 a = quotes_if_needed(a)
                 items.append(return_value('%s :== %s' % (e, str(a)), current_key=key))
