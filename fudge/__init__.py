@@ -257,7 +257,10 @@ class EqualsAssertionError(AssertionError):
     def __unicode__(self):
         return self._serialize()
 
-    class KeyNotFound():
+    class KeyNotFound(object):
+        def __eq__(self, other):
+            return False
+
         def __repr__(self):
             return '[Key not found]'
 
@@ -320,7 +323,7 @@ class EqualsAssertionError(AssertionError):
 
                 return
 
-            if e == a:
+            if a == e:
                 e = quotes_if_needed(e)
                 a = quotes_if_needed(a)
                 items.append(return_value('%s :== %s' % (e, str(a)), current_key=key))
@@ -527,7 +530,7 @@ class Call(object):
     #
     #     return (True, "")
 
-    def _repr_call(self, expected_args, expected_kwargs, shorten_long_vals=True):
+    def _repr_call(self, expected_args, expected_kwargs, shorten_long_vals=False):
         args = []
         if expected_args:
             args.extend([fmt_val(a, shorten=shorten_long_vals) for a in expected_args])
@@ -1522,5 +1525,6 @@ class Fake(object):
         exp = self._get_current_call()
         exp.expected_kwarg_count = count
         return self
+
 
 
