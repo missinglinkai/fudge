@@ -323,7 +323,7 @@ class EqualsAssertionError(AssertionError):
 
                 return
 
-            if a == e:
+            if not isinstance(a, key_not_found) and e == a:
                 e = quotes_if_needed(e)
                 a = quotes_if_needed(a)
                 items.append(return_value('%s :== %s' % (e, str(a)), current_key=key))
