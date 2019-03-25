@@ -323,7 +323,7 @@ class EqualsAssertionError(AssertionError):
 
                 return
 
-            if a != key_not_found and e == a:
+            if key_not_found not in [e, a] and e == a:
                 e = quotes_if_needed(e)
                 a = quotes_if_needed(a)
                 items.append(return_value('%s :== %s' % (e, str(a)), current_key=key))
@@ -422,15 +422,13 @@ class Call(object):
             # check keyword args first because of python arg coercion...
             if self.expected_kwargs is None:
                 self.expected_kwargs = {} # empty **kw
-            if self.expected_kwargs != kwargs:
-                msg = "%s was called unexpectedly with args %s" % (self, self._repr_call(args, kwargs, shorten_long_vals=False))
-                raise EqualsAssertionError(self.expected_kwargs, kwargs, msg)
 
             if self.expected_args is None:
                 self.expected_args = tuple([])  # empty *args
-            if self.expected_args != args:
+
+            if self.expected_kwargs != kwargs or self.expected_args != args:
                 msg = "%s was called unexpectedly with args %s" % (self, self._repr_call(args, kwargs, shorten_long_vals=False))
-                raise EqualsAssertionError(self.expected_args, args, msg)
+                raise EqualsAssertionError((self.expected_args, self.expected_kwargs), (args, kwargs), msg)
 
         # now check for matching keyword args.
         # i.e. keyword args that are only checked if the call provided them
