@@ -284,6 +284,17 @@ class EqualsAssertionError(AssertionError):
 
                 return str(v)
 
+            def fqdn(t1, t2):
+                if isinstance(t1, EqualsAssertionError.KeyNotFound):
+                    return ''
+
+                if isinstance(t2, EqualsAssertionError.KeyNotFound):
+                    return ''
+
+                t1 = type(t1)
+
+                return '(%s.%s)' % (t1.__module__, t1.__name__)
+
             def user_not_matcher(e, a):
                 if isinstance(e, six.string_types) and isinstance(a, six.string_types):
                     result = list(difflib.Differ().compare([quotes_if_needed(e)], [quotes_if_needed(a)]))
@@ -293,18 +304,18 @@ class EqualsAssertionError(AssertionError):
                         yield return_value(i, current_key=key, prefix='!')
                 elif str(e) == str(a):
                     if type(e) == type(a):
-                        yield return_value('%s (%s) :<> %s (%s)' % (quotes_if_needed(e), e.__repr__(), quotes_if_needed(a), a.__repr__()), current_key=key, prefix='!')
+                        yield return_value('%s (%s) :<> %s %s' % (quotes_if_needed(e), e.__repr__(), quotes_if_needed(a), a.__repr__()), current_key=key, prefix='!')
                     else:
-                        yield return_value('%s (%s) :<> %s (%s)' % (quotes_if_needed(e), type(e), quotes_if_needed(a), type(a)), current_key=key, prefix='!')
+                        yield return_value('%s (%s) :<> %s %s' % (quotes_if_needed(e), fqdn(e, a), quotes_if_needed(a), fqdn(a, e)), current_key=key, prefix='!')
                 else:
-                    yield return_value('%s :<> %s' % (quotes_if_needed(e), quotes_if_needed(a)), current_key=key, prefix='!')
+                    yield return_value('%s :<> %s %s' % (quotes_if_needed(e), quotes_if_needed(a), fqdn(a, e)), current_key=key, prefix='!')
 
             if isinstance(a, dict):
                 if not isinstance(e, dict):
                     if a == e:
                         items.append(return_value('%s :== %s' % (e, str(a)), current_key=key))
                     else:
-                        items.append(return_value('%s :<> %s' % (str(e), str(a)), current_key=key, prefix='!'))
+                        items.append(return_value('%s :<> %s %s' % (str(e), str(a), fqdn(a, e)), current_key=key, prefix='!'))
                 else:
                     items.append(return_value('{', current_key=key))
                     for key in sorted(set(list(a.keys()) + list(e.keys()))):
@@ -1523,6 +1534,7 @@ class Fake(object):
         exp = self._get_current_call()
         exp.expected_kwarg_count = count
         return self
+
 
 
 
